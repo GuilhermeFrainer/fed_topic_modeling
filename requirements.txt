@@ -1,0 +1,5 @@
+pandas
+bertopic
+nltk
+sentence-transformers
+polars
