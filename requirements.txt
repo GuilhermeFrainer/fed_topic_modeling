@@ -3,3 +3,4 @@ bertopic
 nltk
 sentence-transformers
 polars
+python-dotenv
