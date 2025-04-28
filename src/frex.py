@@ -22,6 +22,7 @@ def exclusivity(topics: np.ndarray, top_words=10, exclusivity_weight=0.7) -> flo
     -----
     This function is essentially a port of an R function from the stm package.
     Source code available here: https://github.com/bstewart/stm/blob/master/R/exclusivity.R.
+    Package paper available here: https://cran.r-project.org/web/packages/stm/vignettes/stmVignette.pdf.
     """
     # Small error to avoid division by zero
     e = 1e-10
