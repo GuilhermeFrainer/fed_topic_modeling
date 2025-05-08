@@ -1,12 +1,14 @@
 import polars as pl
 import numpy as np
 from dotenv import dotenv_values
-import pathlib
 from gensim.models.ldamulticore import LdaMulticore
-import gensim.models.basemodel
 from gensim.models.coherencemodel import CoherenceModel
 from gensim.corpora.dictionary import Dictionary
-import warnings
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+
+# Local imports
+import frex
 
 
 CONFIG = dotenv_values(".env")
@@ -25,15 +27,15 @@ def main():
 
     metrics_dict = {"n_topics": [], "exclusivity": [], "coherence": []}
 
-    warnings.warn("Exclusivity metrics are calculated improperly for now")
-    for n in range(MIN_TOPICS, MAX_TOPICS + 1):
-        print(f"Training model with {n} topics")
+    topic_range = range(MIN_TOPICS, MAX_TOPICS + 1)
+    for n in tqdm(topic_range, desc="Training LDA models", unit="model"):
         lda = LdaMulticore(corpus, num_topics=n, workers=WORKERS, id2word=gensim_dict)
-        topics = get_topics_df(lda)
+        topics_df = get_topics_df(lda)
 
-        exclusivity = get_exclusivity(lda).sum()
+        topics = lda.get_topics()
+        frex_metric = frex.exclusivity(topics)
+        exclusivity = np.mean(frex_metric) # The original R `plotModels` function computes the average
 
-        print("Computing coherence")
         cm = CoherenceModel(model=lda, corpus=corpus, texts=texts)
         coherence = cm.get_coherence()
 
@@ -42,8 +44,7 @@ def main():
         metrics_dict["coherence"].append(coherence)
 
         filename = f"{CONFIG["OUTPUT_DIR"]}/lda_{n:02}_topics.csv"
-        topics.write_csv(filename)
-        print(f"Results saved to {filename}")
+        topics_df.write_csv(filename)
 
     print("All models have been run")
     metrics_df = pl.DataFrame(metrics_dict)
@@ -51,9 +52,26 @@ def main():
     metrics_df.write_csv(metrics_filename)
     print(f"Metrics saved to {metrics_filename}")
 
+    plt.figure(figsize=(8, 6))
+    plt.scatter(metrics_df["coherence"], metrics_df["exclusivity"])
+
+    # Add text labels for each point (topic number)
+    for i, row in metrics_df.iterrows():
+        plt.text(row["coherence"], row["exclusivity"], str(row["n_topics"]),
+                fontsize=9, ha='right', va='bottom')
+
+    plt.xlabel("Coherence")
+    plt.ylabel("Exclusivity")
+    plt.title("LDA Topics: Coherence vs. Exclusivity")
+    plt.grid(True)
+
+    plt.savefig(f"{CONFIG['FIGURE_DIR']}/lda.png", bbox_inches='tight', dpi=300)
+    plt.close()
+
+
 
 def get_topics_df(lda) -> pl.DataFrame:
-    topics = lda.show_topics(formatted=False)
+    topics = lda.show_topics(num_topics=-1, formatted=False)
     d = {"word": [], "topic": [], "prob": []}
     for topic_num, word_probs in topics:
         for word, prob in word_probs:
@@ -61,13 +79,6 @@ def get_topics_df(lda) -> pl.DataFrame:
             d["topic"].append(topic_num + 1)
             d["prob"].append(prob)
     return pl.DataFrame(d)
-
-
-def get_exclusivity(model: gensim.models.basemodel.BaseTopicModel) -> np.ndarray: 
-    topic_word_probs: np.ndarray = model.get_topics()
-    word_totals = topic_word_probs.sum(axis=0)
-    word_totals[word_totals == 0] = 1e-10 # Avoids division by zero
-    return topic_word_probs / word_totals
 
 
 if __name__ == "__main__":
