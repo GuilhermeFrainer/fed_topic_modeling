@@ -1,14 +1,16 @@
-import polars as pl
-import numpy as np
+import os
+import argparse
+from tqdm import tqdm
+from datetime import datetime
 from dotenv import dotenv_values
+
+import numpy as np
+import polars as pl
+import matplotlib.pyplot as plt
+
 from gensim.models.ldamulticore import LdaMulticore
 from gensim.models.coherencemodel import CoherenceModel
 from gensim.corpora.dictionary import Dictionary
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import argparse
-from datetime import datetime
-import os
 
 # Local imports
 import frex
@@ -19,6 +21,7 @@ FILE = f"{CONFIG["DATA_DIR"]}/communications_preprocessed.csv"
 WORKERS = 4
 MIN_TOPICS = 5
 MAX_TOPICS = 30
+MODEL_CHOICES = ["lda"]
 
 
 def main():
@@ -26,6 +29,13 @@ def main():
     parser.add_argument("--workers", type=int, default=WORKERS, help=f"Number of workers to train algorithms (default: {WORKERS})")
     parser.add_argument("--min_topics", type=int, default=MIN_TOPICS, help=f"Number of topics for smallest model (default: {MIN_TOPICS})")
     parser.add_argument("--max_topics", type=int, default=MAX_TOPICS, help=f"Number of topics for largest number (default: {MAX_TOPICS})")
+    parser.add_argument(
+        "--model",
+        type=str,
+        nargs="+",
+        choices=MODEL_CHOICES,
+        help=f"List of models to run (choices: {MODEL_CHOICES})"
+    )
     args = parser.parse_args()
 
     if args.min_topics > args.max_topics:
