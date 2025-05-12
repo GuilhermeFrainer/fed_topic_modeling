@@ -7,6 +7,8 @@ from gensim.corpora.dictionary import Dictionary
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import argparse
+from datetime import datetime
+import os
 
 # Local imports
 import frex
@@ -28,6 +30,12 @@ def main():
 
     if args.min_topics > args.max_topics:
         parser.error("min_topics cannot be greater than max_topics")
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_dir = os.path.join(CONFIG["OUTPUT_DIR"], timestamp)
+    figures_dir = os.path.join(CONFIG["FIGURE_DIR"], timestamp)
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(figures_dir, exist_ok=True)
 
     df = pl.read_csv(FILE)
 
@@ -53,12 +61,12 @@ def main():
         metrics_dict["exclusivity"].append(exclusivity)
         metrics_dict["coherence"].append(coherence)
 
-        filename = f"{CONFIG["OUTPUT_DIR"]}/lda_{n:02}_topics.csv"
+        filename = f"{output_dir}/lda_{n:02}_topics.csv"
         topics_df.write_csv(filename)
 
     print("All models have been run")
     metrics_df = pl.DataFrame(metrics_dict)
-    metrics_filename = f"{CONFIG["OUTPUT_DIR"]}/lda_metrics.csv"
+    metrics_filename = f"{output_dir}/lda_metrics.csv"
     metrics_df.write_csv(metrics_filename)
     print(f"Metrics saved to {metrics_filename}")
 
@@ -77,9 +85,8 @@ def main():
     plt.title("LDA Topics: Coherence vs. Exclusivity")
     plt.grid(True)
 
-    plt.savefig(f"{CONFIG['FIGURE_DIR']}/lda.png", bbox_inches='tight', dpi=300)
+    plt.savefig(f"{figures_dir}/lda.png", bbox_inches='tight', dpi=300)
     plt.close()
-
 
 
 def get_topics_df(lda) -> pl.DataFrame:
