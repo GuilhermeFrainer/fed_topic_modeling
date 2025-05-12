@@ -6,6 +6,7 @@ from gensim.models.coherencemodel import CoherenceModel
 from gensim.corpora.dictionary import Dictionary
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import argparse
 
 # Local imports
 import frex
@@ -19,6 +20,15 @@ MAX_TOPICS = 30
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Train topic models")
+    parser.add_argument("--workers", type=int, default=WORKERS, help=f"Number of workers to train algorithms (default: {WORKERS})")
+    parser.add_argument("--min_topics", type=int, default=MIN_TOPICS, help=f"Number of topics for smallest model (default: {MIN_TOPICS})")
+    parser.add_argument("--max_topics", type=int, default=MAX_TOPICS, help=f"Number of topics for largest number (default: {MAX_TOPICS})")
+    args = parser.parse_args()
+
+    if args.min_topics > args.max_topics:
+        parser.error("min_topics cannot be greater than max_topics")
+
     df = pl.read_csv(FILE)
 
     texts = [s.split() for s in df["stemmed_text"]]
@@ -27,9 +37,9 @@ def main():
 
     metrics_dict = {"n_topics": [], "exclusivity": [], "coherence": []}
 
-    topic_range = range(MIN_TOPICS, MAX_TOPICS + 1)
+    topic_range = range(args.min_topics, args.max_topics + 1)
     for n in tqdm(topic_range, desc="Training LDA models", unit="model"):
-        lda = LdaMulticore(corpus, num_topics=n, workers=WORKERS, id2word=gensim_dict)
+        lda = LdaMulticore(corpus, num_topics=n, workers=args.workers, id2word=gensim_dict)
         topics_df = get_topics_df(lda)
 
         topics = lda.get_topics()
@@ -56,9 +66,11 @@ def main():
     plt.scatter(metrics_df["coherence"], metrics_df["exclusivity"])
 
     # Add text labels for each point (topic number)
-    for i, row in metrics_df.iterrows():
-        plt.text(row["coherence"], row["exclusivity"], str(row["n_topics"]),
-                fontsize=9, ha='right', va='bottom')
+    for coherence, exclusivity, n_topics in zip(
+        metrics_df["coherence"], metrics_df["exclusivity"], metrics_df["n_topics"]
+    ):
+        plt.text(coherence, exclusivity, str(n_topics),
+             fontsize=9, ha='right', va='bottom')
 
     plt.xlabel("Coherence")
     plt.ylabel("Exclusivity")
