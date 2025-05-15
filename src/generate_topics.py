@@ -32,23 +32,7 @@ MODEL_CHOICES = ["lda"]
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train topic models")
-    parser.add_argument("--workers", type=int, default=WORKERS, help=f"Number of workers to train algorithms (default: {WORKERS})")
-    parser.add_argument("--min_topics", type=int, default=MIN_TOPICS, help=f"Number of topics for smallest model (default: {MIN_TOPICS})")
-    parser.add_argument("--max_topics", type=int, default=MAX_TOPICS, help=f"Number of topics for largest number (default: {MAX_TOPICS})")
-    parser.add_argument(
-        "--model",
-        type=str,
-        nargs="+",
-        choices=MODEL_CHOICES,
-        help=f"List of models to run (choices: {MODEL_CHOICES})"
-    )
-    parser.add_argument("--dataset", type=str, choices=DATASETS, default="fed",
-        help=f"Dataset to be used to train the models (choices: {DATASETS})")
-    args = parser.parse_args()
-
-    if args.min_topics > args.max_topics:
-        parser.error("min_topics cannot be greater than max_topics")
+    args = parse_args()
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     dir_name = timestamp + "_" + args.dataset
@@ -57,18 +41,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(figures_dir, exist_ok=True)
 
-    if args.dataset == "fed":
-        df = pl.read_csv(FILE)
-        texts = [s.split() for s in df["stemmed_text"]]
-    elif args.dataset == "newsgroups":
-        data = fetch_20newsgroups(subset="all", remove=("headers", "footers", "quotes"))
-        stop_words = set(stopwords.words("english"))
-        stemmer = nltk.stem.SnowballStemmer("english")
-
-        preprocessed_texts = [preprocessing.preprocess(t, stop_words=stop_words) for t in data["data"]]
-        stemmed_texts = [preprocessing.stem(t, stemmer=stemmer) for t in preprocessed_texts]
-        texts = [t.split() for t in stemmed_texts]
-
+    texts = load_dataset(args.dataset)
     gensim_dict = Dictionary(documents=texts)
     corpus = [gensim_dict.doc2bow(t) for t in texts]
 
@@ -102,6 +75,58 @@ def main():
     fig = plot_coherence_and_exclusivity(metrics_df)
     fig.savefig(f"{figures_dir}/lda.png", bbox_inches='tight', dpi=300)
     plt.close(fig)
+
+
+def parse_args():
+    """
+    Instantiates parser and sets up arguments. Returns parsed args.
+    """
+    parser = argparse.ArgumentParser(description="Train topic models")
+    parser.add_argument("--workers", type=int, default=WORKERS, help=f"Number of workers to train algorithms (default: {WORKERS})")
+    parser.add_argument("--min_topics", type=int, default=MIN_TOPICS, help=f"Number of topics for smallest model (default: {MIN_TOPICS})")
+    parser.add_argument("--max_topics", type=int, default=MAX_TOPICS, help=f"Number of topics for largest number (default: {MAX_TOPICS})")
+    parser.add_argument(
+        "--model",
+        type=str,
+        nargs="+",
+        choices=MODEL_CHOICES,
+        help=f"List of models to run (choices: {MODEL_CHOICES})"
+    )
+    parser.add_argument("--dataset", type=str, choices=DATASETS, default="fed",
+        help=f"Dataset to be used to train the models (choices: {DATASETS})")
+    args = parser.parse_args()
+
+    if args.min_topics > args.max_topics:
+        parser.error("min_topics cannot be greater than max_topics")
+    return args
+
+
+def load_dataset(dataset: str) -> list[list[str]]:
+    """
+    Loads chosen dataset.
+
+    Parameters
+    ----------
+    dataset : str
+        Name of the dataset.
+    
+    Returns
+    -------
+    list[list[str]]
+        List of documents. Each document is stripped, so it's a list of strings.
+    """
+    if dataset == "fed":
+        df = pl.read_csv(FILE)
+        texts = [s.split() for s in df["stemmed_text"]]
+    elif dataset == "newsgroups":
+        data = fetch_20newsgroups(subset="all", remove=("headers", "footers", "quotes"))
+        stop_words = set(stopwords.words("english"))
+        stemmer = nltk.stem.SnowballStemmer("english")
+
+        preprocessed_texts = [preprocessing.preprocess(t, stop_words=stop_words) for t in data["data"]]
+        stemmed_texts = [preprocessing.stem(t, stemmer=stemmer) for t in preprocessed_texts]
+        texts = [t.split() for t in stemmed_texts]
+    return texts
 
 
 def get_topics_df(lda) -> pl.DataFrame:
@@ -143,7 +168,6 @@ def plot_coherence_and_exclusivity(df: pl.DataFrame) -> matplotlib.figure.Figure
     ax.set_ylabel("Exclusivity")
     ax.set_title("Coherence vs. Exclusivity")
     ax.grid(True)
-
     return fig
 
 
