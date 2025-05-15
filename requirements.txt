@@ -6,3 +6,8 @@ polars
 python-dotenv
 tqdm
 matplotlib
+gensim
+scikit-learn
+ipykernel
+ipywidgets
+nbformat>=4.2.0
