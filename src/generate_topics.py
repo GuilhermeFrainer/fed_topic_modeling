@@ -1,5 +1,6 @@
 import os
 import argparse
+import matplotlib.figure
 from tqdm import tqdm
 from datetime import datetime
 from dotenv import dotenv_values
@@ -7,17 +8,23 @@ from dotenv import dotenv_values
 import numpy as np
 import polars as pl
 import matplotlib.pyplot as plt
+import matplotlib
 
 from gensim.models.ldamulticore import LdaMulticore
 from gensim.models.coherencemodel import CoherenceModel
 from gensim.corpora.dictionary import Dictionary
+from sklearn.datasets import fetch_20newsgroups
+from nltk.corpus import stopwords
+import nltk
 
 # Local imports
 import frex
+import preprocessing
 
 
 CONFIG = dotenv_values(".env")
 FILE = f"{CONFIG["DATA_DIR"]}/communications_preprocessed.csv"
+DATASETS = ["fed", "newsgroups"]
 WORKERS = 4
 MIN_TOPICS = 5
 MAX_TOPICS = 30
@@ -36,20 +43,32 @@ def main():
         choices=MODEL_CHOICES,
         help=f"List of models to run (choices: {MODEL_CHOICES})"
     )
+    parser.add_argument("--dataset", type=str, choices=DATASETS, default="fed",
+        help=f"Dataset to be used to train the models (choices: {DATASETS})")
     args = parser.parse_args()
 
     if args.min_topics > args.max_topics:
         parser.error("min_topics cannot be greater than max_topics")
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_dir = os.path.join(CONFIG["OUTPUT_DIR"], timestamp)
-    figures_dir = os.path.join(CONFIG["FIGURE_DIR"], timestamp)
+    dir_name = timestamp + "_" + args.dataset
+    output_dir = os.path.join(CONFIG["OUTPUT_DIR"], dir_name)
+    figures_dir = os.path.join(CONFIG["FIGURE_DIR"], dir_name)
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(figures_dir, exist_ok=True)
 
-    df = pl.read_csv(FILE)
+    if args.dataset == "fed":
+        df = pl.read_csv(FILE)
+        texts = [s.split() for s in df["stemmed_text"]]
+    elif args.dataset == "newsgroups":
+        data = fetch_20newsgroups(subset="all", remove=("headers", "footers", "quotes"))
+        stop_words = set(stopwords.words("english"))
+        stemmer = nltk.stem.SnowballStemmer("english")
 
-    texts = [s.split() for s in df["stemmed_text"]]
+        preprocessed_texts = [preprocessing.preprocess(t, stop_words=stop_words) for t in data["data"]]
+        stemmed_texts = [preprocessing.stem(t, stemmer=stemmer) for t in preprocessed_texts]
+        texts = [t.split() for t in stemmed_texts]
+
     gensim_dict = Dictionary(documents=texts)
     corpus = [gensim_dict.doc2bow(t) for t in texts]
 
@@ -80,23 +99,9 @@ def main():
     metrics_df.write_csv(metrics_filename)
     print(f"Metrics saved to {metrics_filename}")
 
-    plt.figure(figsize=(8, 6))
-    plt.scatter(metrics_df["coherence"], metrics_df["exclusivity"])
-
-    # Add text labels for each point (topic number)
-    for coherence, exclusivity, n_topics in zip(
-        metrics_df["coherence"], metrics_df["exclusivity"], metrics_df["n_topics"]
-    ):
-        plt.text(coherence, exclusivity, str(n_topics),
-             fontsize=9, ha='right', va='bottom')
-
-    plt.xlabel("Coherence")
-    plt.ylabel("Exclusivity")
-    plt.title("LDA Topics: Coherence vs. Exclusivity")
-    plt.grid(True)
-
-    plt.savefig(f"{figures_dir}/lda.png", bbox_inches='tight', dpi=300)
-    plt.close()
+    fig = plot_coherence_and_exclusivity(metrics_df)
+    fig.savefig(f"{figures_dir}/lda.png", bbox_inches='tight', dpi=300)
+    plt.close(fig)
 
 
 def get_topics_df(lda) -> pl.DataFrame:
@@ -108,6 +113,38 @@ def get_topics_df(lda) -> pl.DataFrame:
             d["topic"].append(topic_num + 1)
             d["prob"].append(prob)
     return pl.DataFrame(d)
+
+
+def plot_coherence_and_exclusivity(df: pl.DataFrame) -> matplotlib.figure.Figure:
+    """
+    Plots coherence and exclusivity chart.
+
+    Paramters
+    ---------
+    df : pl.DataFrame
+        DataFrame containing coherence and exclusivity metrics for each topic model.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        Plot of coherence and exclusivity.
+    """
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(df["coherence"], df["exclusivity"])
+
+    # Add text labels for each point (topic number)
+    for coherence, exclusivity, n_topics in zip(
+        df["coherence"], df["exclusivity"], df["n_topics"]
+    ):
+        ax.text(coherence, exclusivity, str(n_topics),
+                fontsize=9, ha='right', va='bottom')
+
+    ax.set_xlabel("Coherence")
+    ax.set_ylabel("Exclusivity")
+    ax.set_title("Coherence vs. Exclusivity")
+    ax.grid(True)
+
+    return fig
 
 
 if __name__ == "__main__":
