@@ -1,0 +1,133 @@
+---
+title: "stm"
+output: html_document
+---
+
+```{r load-libraries}
+library(stm)
+```
+
+```{r load-data}
+df <- read.csv("../data/dummy.csv", stringsAsFactors = FALSE)
+df
+```
+
+`textProcessor` also processes the data and stems it,
+which isn't needed nor wanted really.
+I should look into that
+
+```{r process-data}
+processed <- textProcessor(df$stemmed_text)
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
+docs <- out$documents
+vocab <- out$vocab
+meta <- out$meta
+```
+
+```{r model-fitting}
+models <- selectModel(
+  documents = docs,
+  vocab = vocab,
+  data = meta,
+  K = 3)
+models
+```
+
+```{r plot-models}
+plotModels(models, legend.position="bottomright")
+```
+
+```{r real-data}
+df <- read.csv("../data/communications.csv", stringsAsFactors = FALSE)
+
+processed <- textProcessor(df$Text)
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
+docs <- out$documents
+vocab <- out$vocab
+meta <- out$meta
+```
+
+```{r real-model-fitting}
+models <- selectModel(
+  documents = docs,
+  vocab = vocab,
+  data = meta,
+  K = 20)
+plotModels(models, legend.position="bottomright")
+```
+
+```{r topic_number_choice}
+modelSearchResults <- searchK(
+  documents = docs,
+  vocab = vocab,
+  data = meta,
+  K = seq.int(5, 30, 1)
+)
+modelSearchResults
+```
+
+```{r plot_models}
+library(ggplot2)
+df <- modelSearchResults$results
+df$semcoh <- as.numeric(df$semcoh)
+df$exclus <- as.numeric(df$exclus)
+
+# Get axis midpoints
+x_min <- min(df$semcoh, na.rm = TRUE)
+x_max <- max(df$semcoh, na.rm = TRUE)
+x_mid <- (x_min + x_max) / 2
+
+y_min <- min(df$exclus, na.rm = TRUE)
+y_max <- max(df$exclus, na.rm = TRUE)
+y_mid <- (y_min + y_max) / 2
+
+p <- ggplot(df, aes(x = semcoh, y = exclus, label = K)) +
+  geom_point() +
+  geom_text(vjust = -0.5) +  # or use ggrepel later
+  
+  # Quadrant lines at axis midpoints
+  geom_vline(xintercept = x_mid, linetype = "dashed", color = "gray30") +
+  geom_hline(yintercept = y_mid, linetype = "dashed", color = "gray30") +
+  
+  labs(
+    x = "Semantic Coherence",
+    y = "Exclusivity"
+  ) +
+  theme_minimal() + 
+  theme(
+    panel.grid = element_blank(),         # remove default grid
+    panel.border = element_blank(),       # remove border
+    axis.line = element_line(color = "black"),  # add clean axes
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA)
+  )
+p
+```
+
+```{r convert-column-types}
+# A few columns seem to be of list type for whatever reason
+# and they need to be converted before I save the csv
+list_cols <- sapply(df, is.list)
+df[list_cols] <- lapply(df[list_cols], function(col) {
+  sapply(col, function(x) if(length(x) > 0) as.numeric(x[[1]]) else NA)
+})
+```
+
+```{r save-results}
+timestamp <- Sys.time()
+dir_name <- format(timestamp, "stm_fed_%Y-%m-%d_%H-%M-%S")
+output_dir <- here::here("output", dir_name)
+fig_dir <- here::here("figures", dir_name)
+
+dir.create(output_dir, recursive = TRUE)
+dir.create(fig_dir, recursive = TRUE)
+
+write.csv(df, paste(output_dir, "searchK_results.csv", sep="/"), row.names = FALSE)
+
+ggsave(
+  paste(fig_dir, "stm_model_comparison.png", sep="/"),
+  plot = p,
+  width = 8,
+  height = 6,
+  dpi = 300)
+```
