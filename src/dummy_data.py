@@ -13,7 +13,7 @@ FILE = "dummy.csv"
 
 def main():
     config = dotenv_values(".env")
-    data_dir = pathlib.Path(config["DATA_DIR"])
+    data_dir = pathlib.Path(config["DATA_DIR"]) / "processed"
 
     stop_words = set(stopwords.words("english"))
     stemmer = nltk.stem.SnowballStemmer("english")

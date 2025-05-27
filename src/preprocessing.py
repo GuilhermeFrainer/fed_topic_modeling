@@ -11,7 +11,9 @@ def main():
 
     config: dict = dotenv_values(".env") 
     data_dir = pathlib.Path(config["DATA_DIR"])
-    df = pl.read_csv(data_dir / "communications.csv")
+    raw_data = data_dir / "raw"
+    processed_data = data_dir / "processed"
+    df = pl.read_csv(raw_data / "communications.csv")
 
     stop_words = set(stopwords.words("english"))
     df = df.with_columns(
@@ -27,8 +29,9 @@ def main():
             .alias("stemmed_text")
             )
 
-    df.write_csv(data_dir / "communications_preprocessed.csv")
-    print("Saved preprocessed data to 'communications_preprocessed.csv'")
+    filename = str(processed_data / "communications.csv")
+    df.write_csv(filename)
+    print(f"Saved preprocessed data to '{filename}'")
 
 
 def preprocess(text: str, stop_words: set) -> str:

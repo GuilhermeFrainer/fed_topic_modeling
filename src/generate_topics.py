@@ -4,6 +4,7 @@ import matplotlib.figure
 from tqdm import tqdm
 from datetime import datetime
 from dotenv import dotenv_values
+import pathlib
 
 import numpy as np
 import polars as pl
@@ -23,25 +24,25 @@ import preprocessing
 
 
 CONFIG = dotenv_values(".env")
-FILE = f"{CONFIG["DATA_DIR"]}/communications_preprocessed.csv"
 DATASETS = ["fed", "newsgroups"]
+# Default CLI options
 WORKERS = 4
 MIN_TOPICS = 5
 MAX_TOPICS = 30
-MODEL_CHOICES = ["lda"]
 
 
 def main():
     args = parse_args()
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    dir_name = timestamp + "_" + args.dataset
+    dir_name = "lda" + "_" + args.dataset + "_" + timestamp
+    data_dir = pathlib.Path(os.path.join(CONFIG["DATA_DIR"], "processed"))
     output_dir = os.path.join(CONFIG["OUTPUT_DIR"], dir_name)
     figures_dir = os.path.join(CONFIG["FIGURE_DIR"], dir_name)
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(figures_dir, exist_ok=True)
 
-    texts = load_dataset(args.dataset)
+    texts = load_dataset(args.dataset, data_dir)
     gensim_dict = Dictionary(documents=texts)
     corpus = [gensim_dict.doc2bow(t) for t in texts]
 
@@ -85,13 +86,6 @@ def parse_args():
     parser.add_argument("--workers", type=int, default=WORKERS, help=f"Number of workers to train algorithms (default: {WORKERS})")
     parser.add_argument("--min_topics", type=int, default=MIN_TOPICS, help=f"Number of topics for smallest model (default: {MIN_TOPICS})")
     parser.add_argument("--max_topics", type=int, default=MAX_TOPICS, help=f"Number of topics for largest number (default: {MAX_TOPICS})")
-    parser.add_argument(
-        "--model",
-        type=str,
-        nargs="+",
-        choices=MODEL_CHOICES,
-        help=f"List of models to run (choices: {MODEL_CHOICES})"
-    )
     parser.add_argument("--dataset", type=str, choices=DATASETS, default="fed",
         help=f"Dataset to be used to train the models (choices: {DATASETS})")
     args = parser.parse_args()
@@ -101,7 +95,7 @@ def parse_args():
     return args
 
 
-def load_dataset(dataset: str) -> list[list[str]]:
+def load_dataset(dataset: str, data_dir: pathlib.Path) -> list[list[str]]:
     """
     Loads chosen dataset.
 
@@ -109,6 +103,9 @@ def load_dataset(dataset: str) -> list[list[str]]:
     ----------
     dataset : str
         Name of the dataset.
+
+    data_dir : pathlib.Path
+        Path to the data.
     
     Returns
     -------
@@ -116,7 +113,8 @@ def load_dataset(dataset: str) -> list[list[str]]:
         List of documents. Each document is stripped, so it's a list of strings.
     """
     if dataset == "fed":
-        df = pl.read_csv(FILE)
+        filename = data_dir / "communications.csv"
+        df = pl.read_csv(filename)
         texts = [s.split() for s in df["stemmed_text"]]
     elif dataset == "newsgroups":
         data = fetch_20newsgroups(subset="all", remove=("headers", "footers", "quotes"))

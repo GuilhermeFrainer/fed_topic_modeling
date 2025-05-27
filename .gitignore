@@ -1,6 +1,6 @@
 # Python
 src/__pycache__
-venv
+.venv
 
 # R
 .Rproj.user
