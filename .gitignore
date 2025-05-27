@@ -1,9 +1,8 @@
 # Python
 src/__pycache__
-.venv
 
 # R
-.Rproj.user
 .RData
 .Rhistory
-renv/library
+.Rproj.user
+
