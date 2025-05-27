@@ -20,7 +20,7 @@ main <- function() {
   opt <- parse_args(OptionParser(option_list = option_list))
   
   
-  data <- read.csv("../data/communications_preprocessed.csv", stringsAsFactors = FALSE)
+  data <- read.csv("data/communications_preprocessed.csv", stringsAsFactors = FALSE)
   
   processed_data <- prepare_data(data)
   docs <- processed_data$documents
@@ -36,28 +36,28 @@ main <- function() {
   
   p <- generate_plot(modelSearchResults$results)
   
-  create_dirs(timestamp)
+  df <- correct_df(modelSearchResults$results)
   
-  df <- correct_df(df)
+  dirs <- create_dirs(timestamp)
   
-  output_filename = paste(output_dir, "searchK_results.csv", sep="/")
+  output_filename = paste(dirs$output, "searchK_results.csv", sep="/")
   write.csv(df, output_filename, row.names = FALSE)
-  print("Model search output saved to", output_filename)
+  message("Model search output saved to", output_filename)
   
-  figure_filename = paste(fig_dir, "stm_model_comparison.png", sep="/")
+  figure_filename = paste(dirs$figures, "stm_model_comparison.png", sep="/")
   ggsave(
     figure_filename,
     plot = p,
     width = 8,
     height = 6,
     dpi = 300)
-  print("Model comparison plot saved to", figure_filename)
+  message("Model comparison plot saved to", figure_filename)
 }
 
 prepare_data <- function(data) {
   # No preprocessing, as text was already preprocessed in Python
   processed <- textProcessor(
-    data$Text,
+    data$stemmed_text,
     lowercase = FALSE,
     removestopwords = FALSE,
     removenumbers = FALSE,
@@ -116,6 +116,8 @@ create_dirs <- function(timestamp) {
   
   dir.create(output_dir, recursive = TRUE)
   dir.create(fig_dir, recursive = TRUE)
+  
+  return(list(output = output_dir, figures = fig_dir))
 }
 
 # For whatever reason, some of the columns in the dataframe
