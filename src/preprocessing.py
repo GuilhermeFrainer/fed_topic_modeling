@@ -13,25 +13,43 @@ def main():
     data_dir = pathlib.Path(config["DATA_DIR"])
     raw_data = data_dir / "raw"
     processed_data = data_dir / "processed"
-    df = pl.read_csv(raw_data / "communications.csv")
 
+    communications_raw_path = processed_data / "communications_raw.parquet"
+    communications_clean_path = processed_data / "communications_clean.parquet"
+    communications_stemmed_path = processed_data / "communications_stemmed.parquet"
+
+    # Converting to parquet
+    df = pl.read_csv(raw_data / "communications.csv")
+    df = df.rename({"Text": "text"})
+    df.write_parquet(communications_raw_path)
+
+    # Removing numbers, stopwords
+    lf = pl.scan_parquet(processed_data / "communications_raw.parquet")
     stop_words = set(stopwords.words("english"))
-    df = df.with_columns(
-            pl.col("Text")
+    lf = lf.with_columns(
+            pl.col("text")
             .map_elements(lambda s: preprocess(s, stop_words), return_dtype=pl.String)
             .alias("clean_text")
             )
 
+    lf = lf.select(pl.exclude("text")).rename({"clean_text": "text"})
+    print("Sinking cleaned parquet file...")
+    lf.sink_parquet(communications_clean_path)
+    print(f"Saved preprocessed data to '{str(communications_clean_path)}'")
+
+    # Stemming
+    lf = pl.scan_parquet(communications_clean_path)
     stemmer = nltk.stem.SnowballStemmer("english")
-    df = df.with_columns(
-            pl.col("clean_text")
+    lf = lf.with_columns(
+            pl.col("text")
             .map_elements(lambda s: stem(s, stemmer), return_dtype=pl.String)
             .alias("stemmed_text")
             )
 
-    filename = str(processed_data / "communications.csv")
-    df.write_csv(filename)
-    print(f"Saved preprocessed data to '{filename}'")
+    lf = lf.select(pl.exclude("text")).rename({"stemmed_text": "text"})
+    print("Sinking stemmed parquet...")
+    lf.sink_parquet(communications_stemmed_path)
+    print(f"Saved preprocessed data to '{str(communications_stemmed_path)}'")
 
 
 def preprocess(text: str, stop_words: set) -> str:
