@@ -69,7 +69,7 @@ def preprocess(text: str, stop_words: set) -> str:
     str
         Preprocessed string.
     """
-    text = re.sub(r'[^a-zA-Z_]', ' ', text) # removes non-words
+    text = re.sub(r'[^a-zA-Z]', ' ', text) # removes non-words
     words = text.lower().split()
     filtered_words = [w for w in words if w not in stop_words]
     return " ".join(filtered_words)
