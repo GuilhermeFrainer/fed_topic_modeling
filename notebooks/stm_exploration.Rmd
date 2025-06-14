@@ -1,0 +1,76 @@
+---
+title: "R Notebook"
+---
+
+```{r}
+library(stm)
+library(ggplot2)
+library(optparse)
+library(arrow)
+library(quanteda)
+```
+```{r variables}
+TOPIC_NUMBER <- 12
+DATASET <- "news"
+```
+
+```{r load data}
+data <- read_parquet("../data/processed/news_final.parquet")
+data
+```
+```{r}
+prepare_data <- function(data) {
+    corp <- corpus(data, text_field = "text")
+    corp_tokens <- tokens(corp, what = "word", remove_punct = FALSE)
+    dfm <- dfm(corp_tokens)
+    stm_input <- convert(dfm, to = "stm")
+    stm_input$meta <- docvars(corp)
+    return(stm_input)
+}
+
+stm_input <- prepare_data(data)
+```
+
+```{r model training}
+now_timestamp <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
+SAVE_MODEL_PATH <- sprintf("../models/stm_%s_%02d_%s.rds", DATASET, TOPIC_NUMBER, now_timestamp)
+
+model <- stm(documents = stm_input$documents,
+             vocab = stm_input$vocab,
+             data = stm_input$meta,
+             K = TOPIC_NUMBER,
+             init.type = "Spectral")
+
+saveRDS(model, file = SAVE_MODEL_PATH)
+```
+
+
+```{r}
+topics <- labelTopics(model, n = 10)
+topics_path <- sprintf("../output/stm_%s_%02d_%s.txt", DATASET, TOPIC_NUMBER, now_timestamp)
+sink(topics_path)
+print(topics)
+sink()
+topics
+```
+```{r}
+filename <- file.choose()
+model <- readRDS(filename)
+```
+
+
+```{r}
+log_probs <- model$beta$logbeta[[1]]
+colnames(log_probs) <- model$vocab
+rownames(log_probs) <- paste0("Topic_", seq_len(nrow(log_probs)))
+```
+
+```{r}
+theta <- as.data.frame(model$theta)
+colnames(theta) <- paste0("Topic_", seq_len(ncol(theta)))
+```
+
+
+
+
+
