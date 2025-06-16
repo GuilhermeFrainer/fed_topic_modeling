@@ -21,10 +21,10 @@ main <- function() {
     
     output_dir <- create_output_dir(now_timestamp, opt$dataset, opt$num_topics)
     model_path <- sprintf(
-        "models/stm_%s_%02d_%s.rds",
+        "models/stm_%s_%s_topics_%02d.rds",
         opt$dataset,
-        opt$num_topics,
-        format(now_timestamp, "%Y-%m-%d_%H-%M-%S"))
+        format(now_timestamp, "%Y-%m-%d_%H-%M-%S"),
+        opt$num_topics)
     
     valid_datasets <- c("fed", "news", "dummy")
     if (!(opt$dataset %in% valid_datasets)) {
