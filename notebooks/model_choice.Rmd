@@ -9,7 +9,7 @@ library(stm)
 library(arrow)
 library(tidytext)
 library(ggcorrplot)
-#library(tidyverse)
+library(tidyverse)
 ```
 
 ```{r variables}
