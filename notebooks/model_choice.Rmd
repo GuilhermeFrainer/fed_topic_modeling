@@ -7,12 +7,24 @@ This notebook was made to pick which model to use for each dataset.
 ```{r load libraries}
 library(stm)
 library(arrow)
+library(tidytext)
+library(ggcorrplot)
+#library(tidyverse)
 ```
 
-```{r load data}
+```{r variables}
+# For finding representative documents
 MODEL_NAME <- "stm_news_08_2025-06-14_12-20-51"
 DATASET <- "news"
 
+# For comparing models directly
+MODEL_1 <- "stm_fed_14_2025-06-13_10-32-17"
+MODEL_2 <- "stm_fed_15_2025-06-13_10-32-45"
+```
+
+
+
+```{r load data}
 model_path <- sprintf("../models/%s.rds", MODEL_NAME)
 
 valid_datasets <- c("fed", "news")
@@ -30,10 +42,47 @@ data <- read_parquet(dataset_path)
 model <- readRDS(model_path)
 ```
 
-```{r}
-labelTopics(model)
-```
-```{r}
+
+```{r get representative documents}
 find_thoughts_res <- findThoughts(model, data$text)
+```
+
+```{r beta matrix}
+# Uses beta matrix congruence to see similar topics across models
+
+# Gets beta matrix in wide form from model name
+get_beta_wide <- function(model_name) {
+    stopifnot(is.character(model_name))
+    
+    model_path <- sprintf("../models/%s.rds", model_name)
+    model <- readRDS(model_path)
+    beta <- tidy(model, matrix = "beta")
+    
+    # Inner function copied straight from article
+    beta_wide = function(x) {
+        pivot_wider(
+            x,
+            values_from = beta,
+            names_from = topic
+        ) %>%
+        arrange(term) %>%
+        select(-term) %>%
+        rename_all(~paste0("topic_", .))
+    }
+    return(beta_wide(beta))
+}
+
+model_1_beta <- get_beta_wide(MODEL_1)
+model_2_beta <- get_beta_wide(MODEL_2)
+
+cor_1_2 <- cor(model_1_beta, model_2_beta)
+
+cor_plot = ggcorrplot(cor_1_2,
+           colors = c("red", "white", "blue"), 
+           lab = TRUE, 
+           lab_size = 3) +
+    guides(fill = "none") +
+    theme(plot.title.position = "plot")
+cor_plot
 ```
 
