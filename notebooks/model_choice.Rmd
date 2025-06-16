@@ -1,0 +1,39 @@
+---
+title: "Model Choice"
+---
+
+This notebook was made to pick which model to use for each dataset.
+
+```{r load libraries}
+library(stm)
+library(arrow)
+```
+
+```{r load data}
+MODEL_NAME <- "stm_news_08_2025-06-14_12-20-51"
+DATASET <- "news"
+
+model_path <- sprintf("../models/%s.rds", MODEL_NAME)
+
+valid_datasets <- c("fed", "news")
+if (!(DATASET %in% valid_datasets)) {
+    stop("Invalid dataset. Choose one of: fed, news")
+}
+
+dataset_path <- switch(
+    DATASET,
+    fed = "../data/processed/communications_final.parquet",
+    news = "../data/processed/news_final.parquet",
+)
+    
+data <- read_parquet(dataset_path)
+model <- readRDS(model_path)
+```
+
+```{r}
+labelTopics(model)
+```
+```{r}
+find_thoughts_res <- findThoughts(model, data$text)
+```
+
