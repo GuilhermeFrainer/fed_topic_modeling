@@ -14,18 +14,19 @@ library(tidyverse)
 
 ```{r variables}
 # For finding representative documents
-MODEL_NAME <- "stm_news_08_2025-06-14_12-20-51"
+MODEL_NAME <- "stm_news_09_2025-06-14_12-50-23"
 DATASET <- "news"
 
 # For comparing models directly
-MODEL_1 <- "stm_fed_14_2025-06-13_10-32-17"
-MODEL_2 <- "stm_fed_15_2025-06-13_10-32-45"
+MODEL_1 <- "stm_news_08_2025-06-14_12-20-51"
+MODEL_2 <- "stm_news_11_2025-06-14_13-48-53"
+COR_PLOT_NAME <- "cor_news_08_11"
 ```
 
 
 
 ```{r load data}
-model_path <- sprintf("../models/%s.rds", MODEL_NAME)
+model_path <- here::here(sprintf("models/%s.rds", MODEL_NAME))
 
 valid_datasets <- c("fed", "news")
 if (!(DATASET %in% valid_datasets)) {
@@ -34,9 +35,10 @@ if (!(DATASET %in% valid_datasets)) {
 
 dataset_path <- switch(
     DATASET,
-    fed = "../data/processed/communications_final.parquet",
-    news = "../data/processed/news_final.parquet",
+    fed = "data/processed/communications_final.parquet",
+    news = "data/processed/news_final.parquet",
 )
+dataset_path <- here::here(dataset_path)
     
 data <- read_parquet(dataset_path)
 model <- readRDS(model_path)
@@ -45,6 +47,7 @@ model <- readRDS(model_path)
 
 ```{r get representative documents}
 find_thoughts_res <- findThoughts(model, data$text)
+find_thoughts_res$index
 ```
 
 ```{r beta matrix}
@@ -54,7 +57,7 @@ find_thoughts_res <- findThoughts(model, data$text)
 get_beta_wide <- function(model_name) {
     stopifnot(is.character(model_name))
     
-    model_path <- sprintf("../models/%s.rds", model_name)
+    model_path <- here::here(sprintf("models/%s.rds", model_name))
     model <- readRDS(model_path)
     beta <- tidy(model, matrix = "beta")
     
@@ -84,5 +87,6 @@ cor_plot = ggcorrplot(cor_1_2,
     guides(fill = "none") +
     theme(plot.title.position = "plot")
 cor_plot
+ggsave(filename = here::here(sprintf("figures/%s.jpeg", COR_PLOT_NAME)), width = 8, height = 6)
 ```
 
