@@ -14,7 +14,7 @@ library(tidyverse)
 
 ```{r variables}
 # For finding representative documents
-MODEL_NAME <- "stm_news_09_2025-06-14_12-50-23"
+MODEL_NAME <- "stm_fed_14_2025-06-13_10-32-17"
 DATASET <- "news"
 
 # For comparing models directly
@@ -88,5 +88,11 @@ cor_plot = ggcorrplot(cor_1_2,
     theme(plot.title.position = "plot")
 cor_plot
 ggsave(filename = here::here(sprintf("figures/%s.jpeg", COR_PLOT_NAME)), width = 8, height = 6)
+```
+
+```{r topic correlation}
+model <- readRDS(model_path)
+corr <- topicCorr(model)
+plot(corr)
 ```
 
