@@ -1,0 +1,209 @@
+---
+title: "Effect Estimation and Visualization"
+---
+
+```{r}
+library(stm)
+library(arrow)
+```
+
+```{r}
+MODEL_NAME <- "stm_fed_14"
+DATASET <- "fed"
+```
+
+
+```{r}
+model_path <- here::here(sprintf("models/%s.rds", MODEL_NAME))
+
+valid_datasets <- c("fed", "news")
+if (!(DATASET %in% valid_datasets)) {
+    stop("Invalid dataset. Choose one of: fed, news")
+}
+
+dataset_path <- switch(
+    DATASET,
+    fed = "data/processed/communications_final.parquet",
+    news = "data/processed/news_final.parquet",
+)
+dataset_path <- here::here(dataset_path)
+    
+data <- read_parquet(dataset_path)
+model <- readRDS(model_path)
+```
+
+```{r}
+data$original_date <- data$date
+data$date <- as.numeric(data$date)
+prep <- estimateEffect(c(6) ~ s(date), model, metadata = data)
+summary(prep)
+```
+```{r pandemic plot}
+pandemic_topic <- 6
+fig_name <- "fed_pandemic"
+fig_path <- here::here(sprintf("figures/%s.svg", fig_name))
+
+prep <- estimateEffect(c(pandemic_topic) ~ s(date), model, metadata = data)
+
+svg(fig_path, width = 10, height = 8)
+plot(prep, "date", method = "continuous",
+     topics = pandemic_topic, model = model, xaxt = "n",
+     printlegend = FALSE, xlab = "Year")
+
+# Choose range of years based on your data
+years <- 2006:2024  # Adjust to fit your dataset
+year_ticks <- as.numeric(as.Date(paste0(years, "-01-01")))
+
+# Filter ticks to only those within the actual data range
+tick_locs <- year_ticks[year_ticks >= min(data$date) & year_ticks <= max(data$date)]
+tick_labels <- format(as.Date(tick_locs, origin = "1970-01-01"), "%Y")
+
+# Add x-axis with clean year labels
+axis(1, at = tick_locs, labels = tick_labels)
+
+pandemic_date <- as.numeric(as.Date("2020-03-01"))  # or "2020-01-01", depending on what you want
+
+# Add vertical line
+abline(v = pandemic_date, col = "blue", lty = 2, lwd = 1)
+abline(h = 0, col = "black", lty = 2)
+dev.off()
+```
+
+```{r}
+topic <- 2
+
+prep <- estimateEffect(c(topic) ~ s(date), model, metadata = data)
+plot(prep, "date", method = "continuous",
+     topics = topic, model = model, xaxt = "n",
+     printlegend = FALSE, xlab = "Year")
+
+
+# Choose range of years based on your data
+years <- 2006:2024  # Adjust to fit your dataset
+year_ticks <- as.numeric(as.Date(paste0(years, "-01-01")))
+
+# Filter ticks to only those within the actual data range
+tick_locs <- year_ticks[year_ticks >= min(data$date) & year_ticks <= max(data$date)]
+tick_labels <- format(as.Date(tick_locs, origin = "1970-01-01"), "%Y")
+
+# Add x-axis with clean year labels
+axis(1, at = tick_locs, labels = tick_labels)
+
+# Add vertical line
+#abline(v = pandemic_date, col = "black", lty = 2, lwd = 1)
+abline(h = 0, col = "black", lty = 2)
+```
+```{r news data and model}
+news_model_name <- "stm_news_13"
+news_model_path <- here::here(sprintf("models/%s.rds", news_model_name))
+news_dataset_path <- here::here("data/processed/news_final.parquet")
+
+news_data <- read_parquet(news_dataset_path)
+news_model <- readRDS(news_model_path)
+```
+
+```{r}
+topic <- 1
+
+news_data$original_date <- news_data$date
+news_data$date <- as.numeric(news_data$date)
+
+prep <- estimateEffect(c(topic) ~ s(date), news_model, metadata = news_data)
+plot(prep, "date", method = "continuous",
+     topics = topic, model = news_model, xaxt = "n",
+     printlegend = FALSE, xlab = "Year")
+
+
+# Choose range of years based on your data
+years <- 2006:2024  # Adjust to fit your dataset
+year_ticks <- as.numeric(as.Date(paste0(years, "-01-01")))
+
+# Filter ticks to only those within the actual data range
+tick_locs <- year_ticks[year_ticks >= min(news_data$date) & year_ticks <= max(news_data$date)]
+tick_labels <- format(as.Date(tick_locs, origin = "1970-01-01"), "%Y")
+
+# Add x-axis with clean year labels
+axis(1, at = tick_locs, labels = tick_labels)
+
+# Add vertical line
+#abline(v = pandemic_date, col = "black", lty = 2, lwd = 1)
+abline(h = 0, col = "black", lty = 2)
+```
+
+```{r estimate effects fed}
+# Load model and data
+model_path <- here::here(sprintf("models/%s.rds", "stm_fed_14"))
+dataset_path <- here::here("data/processed/communications_final.parquet")
+output_path <- here::here("output/stm_fed_14_2025-06-13_10-32-17/date_estimated_effects.rds")
+
+data <- read_parquet(dataset_path)
+model <- readRDS(model_path)
+K <- model$settings$dim$K
+
+# Convert dates to numeric to estimate effects
+data$original_date <- data$date
+data$date <- as.numeric(data$date)
+
+# Estimate effects and save results
+prep <- estimateEffect(1:K ~ s(date), model, metadata = data, uncertainty = "Global")
+saveRDS(prep, file = output_path)
+```
+
+```{r estimate effects news}
+# Load model and data
+model_path <- here::here(sprintf("models/%s.rds", "stm_news_13"))
+dataset_path <- here::here("data/processed/news_final.parquet")
+output_path <- here::here("output/stm_news_2025-06-14_14-11-59_topics_13/date_estimated_effects.rds")
+
+data <- read_parquet(dataset_path)
+model <- readRDS(model_path)
+K <- model$settings$dim$K
+
+# Convert dates to numeric to estimate effects
+data$original_date <- data$date
+data$date <- as.numeric(data$date)
+
+# Estimate effects and save results
+prep <- estimateEffect(1:K ~ s(date), model, metadata = data, uncertainty = "Global")
+saveRDS(prep, file = output_path)
+```
+
+```{r test output}
+fig_name <- "news_big_tech"
+fig_path <- here::here(sprintf("figures/%s.svg", fig_name))
+
+estimated_effects_path <- here::here("output/stm_news_2025-06-14_14-11-59_topics_13/date_estimated_effects.rds")
+estimated_effects <- readRDS(estimated_effects_path)
+
+topic <- 13
+
+news_data$original_date <- news_data$date
+news_data$date <- as.numeric(news_data$date)
+
+svg(fig_path, width = 10, height = 8)
+plot(estimated_effects, "date", method = "continuous",
+     topics = topic, model = news_model, xaxt = "n",
+     printlegend = FALSE, xlab = "Year")
+
+
+# Choose range of years based on your data
+years <- 2006:2024  # Adjust to fit your dataset
+year_ticks <- as.numeric(as.Date(paste0(years, "-01-01")))
+
+# Filter ticks to only those within the actual data range
+tick_locs <- year_ticks[year_ticks >= min(news_data$date) & year_ticks <= max(news_data$date)]
+tick_labels <- format(as.Date(tick_locs, origin = "1970-01-01"), "%Y")
+
+# Add x-axis with clean year labels
+axis(1, at = tick_locs, labels = tick_labels)
+
+chat_gpt_date <- as.numeric(as.Date("2022-11-30"))  # or "2020-01-01", depending on what you want
+
+# Add vertical line
+abline(v = chat_gpt_date, col = "blue", lty = 2, lwd = 1)
+
+# Add vertical line
+abline(h = 0, col = "black", lty = 2)
+dev.off()
+```
+
