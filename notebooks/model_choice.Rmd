@@ -18,9 +18,9 @@ MODEL_NAME <- "stm_fed_14_2025-06-13_10-32-17"
 DATASET <- "news"
 
 # For comparing models directly
-MODEL_1 <- "stm_news_08_2025-06-14_12-20-51"
-MODEL_2 <- "stm_news_11_2025-06-14_13-48-53"
-COR_PLOT_NAME <- "cor_news_08_11"
+MODEL_1 <- "stm_fed_14"
+MODEL_2 <- "stm_fed_14"
+COR_PLOT_NAME <- "cor_fed_14_14"
 ```
 
 
