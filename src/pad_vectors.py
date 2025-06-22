@@ -30,12 +30,18 @@ def main():
         fed_df = pl.read_parquet(fed_path / "topic_dist.parquet")
 
     try:
+        print("Padding fed file...")
         padded_fed_df = pad_dataframe(fed_df, news_df, fed_path / INTERMEDIARY_FED, large_negative_number=LARGE_NEGATIVE)
+        padded_fed_df = padded_fed_df.select(sorted(padded_fed_df.columns))
+        print("Done")
     except KeyboardInterrupt:
         sys.exit(f"Keyboard interrupt. Fed file saved to {str(fed_path / INTERMEDIARY_FED)}")
 
     try:
+        print("Padding news file...")
         padded_news_df = pad_dataframe(news_df, fed_df, news_path / INTERMEDIARY_NEWS, large_negative_number=LARGE_NEGATIVE)
+        padded_news_df = padded_news_df.select(sorted(padded_news_df.columns))
+        print("Done")
     except KeyboardInterrupt:
         padded_fed_df.write_parquet(fed_path / INTERMEDIARY_FED)
         sys.exit(f"Keyboard interrupt. News file saved to {str(news_path / INTERMEDIARY_NEWS)}")
@@ -47,11 +53,11 @@ def main():
 def pad_dataframe(df1: pl.DataFrame, df2: pl.DataFrame, out_file_path: pathlib.Path, large_negative_number: int = -10000) -> pl.DataFrame:
     df1_cols = set(df1.columns)
     df2_cols = set(df2.columns)
-    df1_only_cols = df1_cols - df2_cols
+    df2_only_cols = df2_cols - df1_cols
 
     try:
-        for col in df1_only_cols:
-            df1 = df1.with_columns(pl.lit(-1000).alias(col))
+        for col in df2_only_cols:
+            df1 = df1.with_columns(pl.lit(large_negative_number).alias(col))
     except KeyboardInterrupt:
         df1 = df1.select(sorted(df1.columns))
         df1.write_parquet(out_file_path)
